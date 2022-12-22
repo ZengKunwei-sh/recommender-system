@@ -3,7 +3,7 @@
 AutoRec[^1]是传统推荐算法到深度推荐算法的过渡模型之一，思路上将**自编码器(AutoEncoder)** 和 **协同过滤(Collaborative Filter)** 相结合，仅通过**单隐层神经网络**实现推荐任务。
 
 ## AutoRec基本原理
-自编码器是一种无监督学习神经网络，将 $n$ 维输入向量压缩(encode)为 $m$ 维后又解压(decode)为$n$维向量输出，从中学习输入数据的隐含特征。
+自编码器是一种无监督学习神经网络，将 $n$ 维输入向量压缩(encode)为 $m$ 维后又解压(decode)为 $n$ 维向量输出，从中学习输入数据的隐含特征。
 
 ![AutoEncoder网络结构](./image/AutoRec/AutoEncoder.jpg)
 
