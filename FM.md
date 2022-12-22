@@ -8,15 +8,14 @@ $$\hat{y} = w_0 + \sum_{i=1}^{N}{w_ix_i} + \sum_{i=1}^{N}{\sum_{j=i+1}^{N}{<v_i\
 ![FM网络结构](./image/FM/FM.png)
 
 ## FM公式计算化简[^3]
-$$
-\begin{align*}
+$$\begin{align*}
 &\sum_{i=1}^{N}{\sum_{j=i+1}^{N}{<v_i\cdot v_j>x_ix_j}}\\
 =& \frac{1}{2}\sum_{i=1}^{N}{\sum_{j=1}^{N}{<v_i\cdot v_j>x_ix_j}} - \frac{1}{2}\sum_{i=1}^{N}{<v_i\cdot v_i>x_ix_i}\\
 =&\frac{1}{2}(\sum_{i=1}^{N}{\sum_{j=1}^{N}{\sum_{k=1}^{m}{v_{i,k}v_{j,k}x_ix_j}}}-\sum_{i=1}^{N}{\sum_{k=1}^{m}{v_{i,k}v_{j,k}x_ix_j}})\\
 =&\frac{1}{2}(\sum_{k=1}^{m}{((\sum_{i=1}^{N}{v_{i,k}x_i})(\sum_{j=1}^{N}{v_{j,k}x_j})-\sum_{i=1}^{N}{v_i^2x_i^2})})\\
 =&\frac{1}{2}(\sum_{k=1}^{m}{((\sum_{i=1}^{N}{v_{i,k}x_i})^2-\sum_{i=1}^{N}{v_i^2x_i^2})})\\
-\end{align*}
-$$
+\end{align*}$$
+
 其中$N$为特征的数量，$m$为embedding向量的长度，通过计算化简可以将时间复杂度由$O(n^2)$降低到$O(n)$，特别是在面对大量稀疏特征时可以节省计算时间。
 
 ## 代码实践
