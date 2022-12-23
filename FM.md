@@ -16,7 +16,7 @@ $$\begin{align*}
 =&\frac{1}{2}(\sum_{k=1}^{m}{((\sum_{i=1}^{N}{v_{i,k}x_i})^2-\sum_{i=1}^{N}{v_i^2x_i^2})})\\
 \end{align*}$$
 
-其中 $N$ 为特征的数量， $m$ 为embedding向量的长度，通过计算化简可以将时间复杂度由 $O(n^2)$ 降低到 $O(n)$ ，特别是在面对大量稀疏特征时可以节省计算时间。
+其中 $N$ 为特征的数量， $m$ 为embedding向量的长度，通过计算化简可以将时间复杂度由 $O(n^2)$ 降低到 $O(mn)$ ，特别是在面对大量稀疏特征时可以节省计算时间。
 
 ## 代码实践
 尝试使用Pytorch实现FM模型。
@@ -89,7 +89,7 @@ class FactorizationMachine(torch.nn.Module):
 ```
 ## 实现代码及数据集
 我使用MovieLens数据集(1M)测试FM模型的结果。
-具体代码放置于[FM Pytorch实现](./MovieLens/ml_1m.py)。
+具体代码放置于[FM Pytorch实现](./Rec_pytorch/FM_for_ml_1m.py)。
 
 [^1]:[Factorization Machines
 ](https://www.csie.ntu.edu.tw/~b97053/paper/Rendle2010FM.pdf)
