@@ -1,6 +1,6 @@
 # FNN 学习笔记
 
-FNN[^1]模型是FM模型与多层神经网络MLP的组合。该模型不是end-to-end，而是分为了两个阶段，首先通过FM预训练embedding层，而后使用训练好的embedding向量去训练MLP网络。
+FNN(Factorization Machine supported Neural Network)[^1]模型是FM模型与多层神经网络MLP的组合。该模型不是end-to-end，而是分为了两个阶段，首先通过FM预训练embedding层，而后使用训练好的embedding向量去训练MLP网络。
 
 ![](./image/FNN/FNN.jpg)
 

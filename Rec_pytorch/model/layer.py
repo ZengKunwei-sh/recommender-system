@@ -91,22 +91,22 @@ class FieldAwareFactorizationMachine(torch.nn.Module):
 
 class MultiLayerPerceptron(torch.nn.Module):
 
-    def __init__(self, input_dim, embed_dims, dropout, output_layer=True):
+    def __init__(self, input_dim, hidden_dims, dropout, output_layer=True):
         """_summary_
         Args:
             input_dim (int): 输入层
-            embed_dims (list): 隐藏层
+            hidden_dims (list): 隐藏层
             dropout (float): dropout 的概率 p
             output_layer (bool, optional): 输出层是否维度为1. Defaults to True.
         """
         super().__init__()
         layers = list()
-        for embed_dim in embed_dims:
-            layers.append(torch.nn.Linear(input_dim, embed_dim))
-            layers.append(torch.nn.BatchNorm1d(embed_dim))
+        for hidden_dim in hidden_dims:
+            layers.append(torch.nn.Linear(input_dim, hidden_dim))
+            layers.append(torch.nn.BatchNorm1d(hidden_dim))
             layers.append(torch.nn.ReLU())
             layers.append(torch.nn.Dropout(p=dropout))
-            input_dim = embed_dim
+            input_dim = hidden_dim
         if output_layer:
             layers.append(torch.nn.Linear(input_dim, 1))
         self.mlp = torch.nn.Sequential(*layers)
@@ -116,6 +116,119 @@ class MultiLayerPerceptron(torch.nn.Module):
         :param x: Float tensor of size ``(batch_size, embed_dim)``
         """
         return self.mlp(x)
+
+class CrossNetwork(torch.nn.Module):
+
+    def __init__(self, input_dim, num_layers):
+        super().__init__()
+        self.num_layers = num_layers
+        self.w = torch.nn.ModuleList([
+            torch.nn.Linear(input_dim, 1, bias=False) for _ in range(num_layers)
+        ])
+        self.b = torch.nn.ParameterList([
+            torch.nn.Parameter(torch.zeros((input_dim,))) for _ in range(num_layers)
+        ])
+
+    def forward(self, x):
+        """
+        :param x: Float tensor of size ``(batch_size, num_fields, embed_dim)``
+        """
+        x0 = x
+        for i in range(self.num_layers):
+            # x*x^T*w + b = w*x * x + b
+            xw = self.w[i](x)
+            x = x0 * xw + self.b[i] + x
+        return x
+
+class Residual_block(torch.nn.Module):
+    def __init__(self, hidden_unit, dim_stack):
+        super(Residual_block, self).__init__()
+        self.linear1 = torch.nn.Linear(dim_stack, hidden_unit)
+        self.linear2 = torch.nn.Linear(hidden_unit, dim_stack)
+        self.relu = torch.nn.ReLU()
+    
+    def forward(self, x):
+        orig_x = x.clone()     # Returns a copy of input
+        x = self.linear1(x)
+        x = self.linear2(x)
+        outputs = self.relu(x + orig_x)
+        return outputs
+
+class MultipleResidualUnits(torch.nn.Module):
+
+    def __init__(self, input_dim, hidden_dims, dropout, output_layer=True):
+        """_summary_
+        Args:
+            input_dim (int): 输入层
+            hidden_dims (list): 隐藏层
+            dropout (float): dropout 的概率 p
+            output_layer (bool, optional): 输出层是否维度为1. Defaults to True.
+        """
+        super().__init__()
+        layers = list()
+        for hidden_dim in hidden_dims:
+            layers.append(Residual_block(hidden_dim, input_dim))
+            layers.append(torch.nn.Dropout(p=dropout))
+        if output_layer:
+            layers.append(torch.nn.Linear(input_dim, 1))
+        self.mlp = torch.nn.Sequential(*layers)
+    
+    def forward(self, x):
+        """
+        :param x: Float tensor of size ``(batch_size, embed_dim)``
+        """
+        return self.mlp(x)
+
+class InnerProductNetwork(torch.nn.Module):
+
+    def forward(self, x):
+        """
+        :param x: Float tensor of size ``(batch_size, num_fields, embed_dim)``
+        returns: (batch_size, num_fields * (num_fields - 1) // 2)
+        """
+        num_fields = x.shape[1]
+        row, col = list(), list()
+        for i in range(num_fields - 1):
+            for j in range(i + 1, num_fields):
+                row.append(i), col.append(j)
+        return torch.sum(x[:, row] * x[:, col], dim=2)
+
+
+class OuterProductNetwork(torch.nn.Module):
+
+    def __init__(self, num_fields, embed_dim, kernel_type='mat'):
+        super().__init__()
+        num_ix = num_fields * (num_fields - 1) // 2
+        if kernel_type == 'mat':
+            kernel_shape = embed_dim, num_ix, embed_dim
+        elif kernel_type == 'vec':
+            kernel_shape = num_ix, embed_dim
+        elif kernel_type == 'num':
+            kernel_shape = num_ix, 1
+        else:
+            raise ValueError('unknown kernel type: ' + kernel_type)
+        self.kernel_type = kernel_type
+        self.kernel = torch.nn.Parameter(torch.zeros(kernel_shape))
+        torch.nn.init.xavier_uniform_(self.kernel.data)
+
+    def forward(self, x):
+        """
+        :param x: Float tensor of size ``(batch_size, num_fields, embed_dim)``
+        """
+        num_fields = x.shape[1]
+        row, col = list(), list()
+        for i in range(num_fields - 1):
+            for j in range(i + 1, num_fields):
+                row.append(i), col.append(j)
+        p, q = x[:, row], x[:, col]     # (batch_size, num_ix, embed_dim)
+        if self.kernel_type == 'mat':
+            # p.unsqueeze(1)  (batch_size, 1, num_ix, embed_dim)
+            # p.unsqueeze(1)*self.kernel (batch_size, embed_dim, num_ix, embed_dim)
+            # torch.sum(p.unsqueeze(1) * self.kernel, dim=-1) (batch_size, embed_dim, num_ix)
+            kp = torch.sum(p.unsqueeze(1) * self.kernel, dim=-1).permute(0, 2, 1) # (batch_size, num_ix, embed_dim)
+            return torch.sum(kp * q, -1)    #(batch_size, num_ix)
+        else:
+            return torch.sum(p * q * self.kernel.unsqueeze(0), -1)
 
 class CrossNetwork(torch.nn.Module):
 

@@ -1,21 +1,8 @@
-# DeepFM 学习笔记
+# Wide&Deep
 
-DeepFM模型结合了FM模型与DNN模型，可以看作是FM与PNN的组合，也可以看作是Wide&Deep模型结合FM升级版。
+Wide&Deep[^1]模型混合了线性模型(Shallow)和深度神经网络(Deep)，同时具有记忆能力与泛化能力。Deep部分模型与FNN模型相似，都为Embedding层与MLP层的组合。在最后将线性模型得到的结果与MLP返回的数值进行相加，进入Sigmoid函数得到最终的预测概率。
 
-![](./image/DeepFM/DeepFM.jpg)
-
-DeepFM可以分为FM部分和Deep部分，是一种典型的并行结构，他们共享特征的Embedding向量。
-
-**FM部分**
-linear + FM
-
-![](./image/DeepFM/FM_part.jpg)
-
-**Deep部分**
-MLP
-
-![](./image/DeepFM/Deep_part.jpg)
-
+![](./image/Wide%26Deep/Wide%26Deep.jpg)
 
 ## Pytorch 实现
 
@@ -40,6 +27,7 @@ class FeaturesEmbedding(torch.nn.Module):
 ```
 
 **线性部分**
+本质上线性部分与深度部分共享同一个Embedding层，此处使用另一个Embedding层取得与线性回归相同的效果。
 
 ```python
 class FeaturesLinear(torch.nn.Module):
@@ -66,30 +54,7 @@ class FeaturesLinear(torch.nn.Module):
         return torch.sum(self.fc(x), dim=1) + self.bias
 ```
 
-**FM层**
-```python
-class FactorizationMachine(torch.nn.Module):
-
-    def __init__(self, reduce_sum=True):
-        super().__init__()
-        self.reduce_sum = reduce_sum
-
-    def forward(self, x):
-        """
-        :param x: Float tensor of size ``(batch_size, num_fields, embed_dim)``
-        """
-        # dim = 1，为特征向量与特征向量对应位置做运算
-        square_of_sum = torch.sum(x, dim=1) ** 2 # 返回 batch * embed_dim
-        sum_of_square = torch.sum(x ** 2, dim=1)
-        ix = square_of_sum - sum_of_square
-        if self.reduce_sum:
-            # 如果不加 keepdim 会返回一个 size = batch 的一维向量
-            # 加了 keepdim = True，返回一个 batch * 1 的2维向量
-            ix = torch.sum(ix, dim=1, keepdim=True)
-        return 0.5 * ix
-```
-
-**Deep部分MLP层**
+**深度部分MLP层**
 
 ```python
 class MultiLayerPerceptron(torch.nn.Module):
@@ -121,35 +86,31 @@ class MultiLayerPerceptron(torch.nn.Module):
         return self.mlp(x)
 ```
 
-**DeepFM模型**
+**Wide&Deep模型**
 
 ```python
-class DeepFactorizationMachineModel(torch.nn.Module):
+class WideAndDeepModel(torch.nn.Module):
     """
-    A pytorch implementation of DeepFM.
+    A pytorch implementation of wide and deep learning.
 
     Reference:
-        H Guo, et al. DeepFM: A Factorization-Machine based Neural Network for CTR Prediction, 2017.
+        HT Cheng, et al. Wide & Deep Learning for Recommender Systems, 2016.
     """
-    
+
     def __init__(self, field_dims, embed_dim, mlp_dims, dropout):
         super().__init__()
-        # 线性部分
         self.linear = FeaturesLinear(field_dims)
-        self.fm = FactorizationMachine(reduce_sum=True)
         self.embedding = FeaturesEmbedding(field_dims, embed_dim)
         self.embed_output_dim = len(field_dims) * embed_dim
         self.mlp = MultiLayerPerceptron(self.embed_output_dim, mlp_dims, dropout)
-    
-    
+
     def forward(self, x):
         """
         :param x: Long tensor of size ``(batch_size, num_fields)``
         """
         embed_x = self.embedding(x)
-        x = self.linear(x) + self.fm(embed_x) + self.mlp(embed_x.view(-1, self.embed_output_dim))
-        # 去掉维度 1
+        x = self.linear(x) + self.mlp(embed_x.view(-1, self.embed_output_dim))
         return torch.sigmoid(x.squeeze(1))
 ```
 
-[^2]:[深度推荐模型之DeepFM](https://zhuanlan.zhihu.com/p/57873613)
+[^1]:[Wide & Deep Learning for Recommender Systems, 2016](https://arxiv.org/pdf/1606.07792.pdf)
